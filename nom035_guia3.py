@@ -587,7 +587,7 @@ def init_excel(path: str):
                 "Alerta Violencia"]
         for i in range(1, 73):
             cols.append(f"P{i:02d}")
-        pd.DataFrame(columns=cols).to_excel(path, index=False)
+        pd.DataFrame(columns=cols).to_excel(path, index=False, engine="openpyxl")
 
 def guardar(data: dict) -> bool:
     path = excel_path(data["cliente"], data.get("razon", ""))
@@ -647,7 +647,7 @@ def guardar(data: dict) -> bool:
             for i, resp in enumerate(data.get("respuestas", []), 1):
                 fila[f"P{i:02d}"] = resp
             df = pd.concat([df, pd.DataFrame([fila])], ignore_index=True)
-            df.to_excel(path, index=False)
+            df.to_excel(path, index=False, engine="openpyxl")
             return True
         except PermissionError:
             if intento < 4: time.sleep(1)
@@ -694,7 +694,7 @@ def trabajador_ya_registrado(ap1, ap2, nom, razon, cliente_key) -> bool:
     path = excel_path(cliente_key, razon)
     if not os.path.exists(path): return False
     try:
-        df = pd.read_excel(path)
+        df = pd.read_excel(path, engine="openpyxl")
         if df.empty or "Nombre" not in df.columns: return False
         nombre_nuevo = f"{ap1}; {ap2}; {nom}".strip().upper()
         mask = ((df["Nombre"].str.strip().str.upper() == nombre_nuevo) &
@@ -783,6 +783,17 @@ hr.div{border:none;border-top:1.5px solid var(--br);margin:.8rem 0;}
 _cliente_def  = _CLIENTE_URL if (_MODO_EMPLEADO and _CLIENTE_URL in CLIENTES) else "FRUCO"
 _pantalla_def = "bienvenida" if _MODO_EMPLEADO else "panel"
 
+# ── Modo empleado: forzar bienvenida al entrar con ?cliente= ─────────────────
+if _MODO_EMPLEADO:
+    _session_cliente = st.session_state.get("_session_cliente_key", "")
+    _pantalla_actual = st.session_state.get("pantalla", "")
+    if _session_cliente != _CLIENTE_URL:
+        st.session_state["_session_cliente_key"] = _CLIENTE_URL
+        if _pantalla_actual in ["panel", "", None]:
+            st.session_state["pantalla"]    = "bienvenida"
+            st.session_state["cliente_key"] = _cliente_def
+            st.session_state["razon"]       = CLIENTES[_cliente_def]["opciones"][0]
+
 DEF = dict(
     pantalla=_pantalla_def, cliente_key=_cliente_def,
     razon=CLIENTES[_cliente_def]["opciones"][0],
@@ -806,18 +817,9 @@ for k, v in DEF.items():
         st.session_state[k] = v
 S = st.session_state
 
-# Modo empleado: forzar bienvenida si llega con ?cliente= en la URL
-# Aplica en cualquier pantalla que no sea parte del cuestionario
-if _MODO_EMPLEADO:
-    if S.get("pantalla") in ["panel", None]:
-        S["pantalla"]    = "bienvenida"
-        S["cliente_key"] = _cliente_def
-        S["razon"]       = CLIENTES[_cliente_def]["opciones"][0]
-    # Siempre asegurar que el cliente sea el correcto
-    if _CLIENTE_URL and _CLIENTE_URL in CLIENTES:
-        S["cliente_key"] = _CLIENTE_URL
-        S["razon"]       = CLIENTES[_CLIENTE_URL]["opciones"][0]
-
+# Seguridad: si pantalla=panel en modo empleado, corregir
+if _MODO_EMPLEADO and S.get("pantalla") == "panel":
+    S["pantalla"] = "bienvenida"
 KEYS_FORM = ["d_ap1","d_ap2","d_nom","w_sexo","w_edad","w_ecivil","w_estudios",
              "w_estatus","w_puesto","w_area","w_contrat","w_personal",
              "w_jornada","w_rotacion","w_tpuesto","w_exp"]
