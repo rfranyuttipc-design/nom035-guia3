@@ -806,10 +806,17 @@ for k, v in DEF.items():
         st.session_state[k] = v
 S = st.session_state
 
-if _MODO_EMPLEADO and S.get("pantalla") == "panel":
-    S["pantalla"]    = "bienvenida"
-    S["cliente_key"] = _cliente_def
-    S["razon"]       = CLIENTES[_cliente_def]["opciones"][0]
+# Modo empleado: forzar bienvenida si llega con ?cliente= en la URL
+# Aplica en cualquier pantalla que no sea parte del cuestionario
+if _MODO_EMPLEADO:
+    if S.get("pantalla") in ["panel", None]:
+        S["pantalla"]    = "bienvenida"
+        S["cliente_key"] = _cliente_def
+        S["razon"]       = CLIENTES[_cliente_def]["opciones"][0]
+    # Siempre asegurar que el cliente sea el correcto
+    if _CLIENTE_URL and _CLIENTE_URL in CLIENTES:
+        S["cliente_key"] = _CLIENTE_URL
+        S["razon"]       = CLIENTES[_CLIENTE_URL]["opciones"][0]
 
 KEYS_FORM = ["d_ap1","d_ap2","d_nom","w_sexo","w_edad","w_ecivil","w_estudios",
              "w_estatus","w_puesto","w_area","w_contrat","w_personal",
