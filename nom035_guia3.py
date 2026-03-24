@@ -85,8 +85,8 @@ LOGO_RF = _asset("assets/logos/rfranyutti.gif")
 
 def excel_path(cliente_key: str, razon_social: str = "") -> str:
     if cliente_key == "QUALTIA" and "CEDIS" in razon_social.upper():
-        return "data/g3_resultados_QUALTIA_CEDIS.xlsx"
-    return f"data/g3_resultados_{cliente_key.upper()}.xlsx"
+        return "data/g3_resultados_QUALTIA_CEDIS.csv"
+    return f"data/g3_resultados_{cliente_key.upper()}.csv"
 
 # ── Catálogos ──────────────────────────────────────────────────────────────────
 SEL         = "— Selecciona —"
@@ -587,7 +587,7 @@ def init_excel(path: str):
                 "Alerta Violencia"]
         for i in range(1, 73):
             cols.append(f"P{i:02d}")
-        pd.DataFrame(columns=cols).to_excel(path, index=False, engine="openpyxl")
+        pd.DataFrame(columns=cols).to_csv(path, index=False, encoding="utf-8-sig")
 
 def guardar(data: dict) -> bool:
     path = excel_path(data["cliente"], data.get("razon", ""))
@@ -949,7 +949,7 @@ if S.pantalla == "panel":
                         with open(out, "rb") as f:
                             st.download_button("⬇️  DESCARGAR EXCEL", data=f.read(),
                                 file_name=os.path.basename(out),
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                mime="text/csv",
                                 use_container_width=True)
                     else: st.warning("Sin datos suficientes.")
                 except Exception as e: st.error(f"Error: {e}")
