@@ -10,7 +10,7 @@ GUÍA III      —  Identificación y Análisis de los Factores de
 
 import streamlit as st
 import pandas as pd
-import os, re, time, sys, io, textwrap, sqlite3, threading
+import os, re, time, sys, io, textwrap, threading
 from datetime import datetime
 
 # ── Modo empleado ─────────────────────────────────────────────────────────────
@@ -595,7 +595,7 @@ def guardar(data: dict) -> bool:
     res  = data.get("resultado", {})
     for intento in range(5):
         try:
-            df   = pd.read_excel(path)
+            df   = pd.read_csv(path, encoding="utf-8-sig")
             fila = {
                 "Folio":          data["folio"],
                 "Fecha":          datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -647,7 +647,7 @@ def guardar(data: dict) -> bool:
             for i, resp in enumerate(data.get("respuestas", []), 1):
                 fila[f"P{i:02d}"] = resp
             df = pd.concat([df, pd.DataFrame([fila])], ignore_index=True)
-            df.to_excel(path, index=False, engine="openpyxl")
+            df.to_csv(path, index=False, encoding="utf-8-sig")
             return True
         except PermissionError:
             if intento < 4: time.sleep(1)
@@ -656,36 +656,25 @@ def guardar(data: dict) -> bool:
                 return False
     return False
 
-# ── Folio SQLite ──────────────────────────────────────────────────────────────
+# ── Folio consecutivo basado en CSV ──────────────────────────────────────────
 _folio_lock = threading.Lock()
 
-def _db_path(cliente_key: str) -> str:
-    os.makedirs("data", exist_ok=True)
-    return f"data/g3_folios_{cliente_key.upper()}.db"
-
-def _init_db(db_path: str):
-    with sqlite3.connect(db_path, timeout=30) as con:
-        con.execute("""CREATE TABLE IF NOT EXISTS folios (
-            id    INTEGER PRIMARY KEY AUTOINCREMENT,
-            razon TEXT NOT NULL,
-            ts    TEXT NOT NULL
-        )""")
-        con.commit()
-
 def folio_nuevo(cliente_key: str, razon_social: str) -> str:
-    db = _db_path(cliente_key)
-    _init_db(db)
+    """Folio 1, 2, 3... basado en registros del CSV."""
+    path      = excel_path(cliente_key, razon_social)
     razon_key = razon_social.strip().upper()
     with _folio_lock:
-        with sqlite3.connect(db, timeout=30, check_same_thread=False) as con:
-            cur = con.execute(
-                "INSERT INTO folios (razon, ts) VALUES (?, ?)",
-                (razon_key, datetime.now().isoformat()))
-            con.commit()
-            n = con.execute(
-                "SELECT COUNT(*) FROM folios WHERE razon=? AND id<=?",
-                (razon_key, cur.lastrowid)).fetchone()[0]
-    return str(n).zfill(3)
+        init_excel(path)
+        try:
+            df = pd.read_csv(path, encoding="utf-8-sig")
+            if df.empty or "Razón Social" not in df.columns:
+                n = 1
+            else:
+                mask = df["Razón Social"].astype(str).str.strip().str.upper() == razon_key
+                n    = int(mask.sum()) + 1
+        except Exception:
+            n = 1
+    return str(n)
 
 def idx_de(lst, val): return lst.index(val) if val in lst else 0
 def solo_letras(t): return re.sub(r"[^A-Za-záéíóúÁÉÍÓÚüÜñÑ\s;]", "", t).upper().strip()
@@ -694,7 +683,7 @@ def trabajador_ya_registrado(ap1, ap2, nom, razon, cliente_key) -> bool:
     path = excel_path(cliente_key, razon)
     if not os.path.exists(path): return False
     try:
-        df = pd.read_excel(path, engine="openpyxl")
+        df = pd.read_csv(path, encoding="utf-8-sig")
         if df.empty or "Nombre" not in df.columns: return False
         nombre_nuevo = f"{ap1}; {ap2}; {nom}".strip().upper()
         mask = ((df["Nombre"].str.strip().str.upper() == nombre_nuevo) &
@@ -931,7 +920,7 @@ if S.pantalla == "panel":
                     label="⬇️ DATOS (Excel)",
                     data=_f.read(),
                     file_name=os.path.basename(_p_raw),
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    mime="text/csv",
                     use_container_width=True)
         else:
             st.button("⬇️ DATOS (Excel)", disabled=True, use_container_width=True)
