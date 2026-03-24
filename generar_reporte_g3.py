@@ -508,12 +508,16 @@ def _resolve_logo(logo_path: str) -> str:
 def generar_excel_g3(excel_path: str, cliente: str, razon: str) -> str:
     if not os.path.exists(excel_path):
         return None
-    df = pd.read_excel(excel_path)
+    if excel_path.endswith(".csv"):
+        df = pd.read_csv(excel_path, encoding="utf-8-sig")
+    else:
+        df = pd.read_excel(excel_path)
     if df.empty:
         return None
 
     fecha_str = datetime.now().strftime("%Y%m%d_%H%M")
-    out = excel_path.replace(".xlsx", f"_reporte_g2_{fecha_str}.xlsx")
+    base_out = excel_path.replace(".csv", "").replace(".xlsx", "")
+    out = f"{base_out}_reporte_g2_{fecha_str}.xlsx"
 
     with pd.ExcelWriter(out, engine="openpyxl") as w:
         df.to_excel(w, sheet_name="Datos", index=False)
@@ -755,7 +759,10 @@ def generar_word_g3(excel_path: str, cliente: str, razon: str,
     logo_cliente = _resolve_logo(logo_cliente) if logo_cliente else ""
     if not os.path.exists(excel_path):
         return None
-    df = pd.read_excel(excel_path)
+    if excel_path.endswith(".csv"):
+        df = pd.read_csv(excel_path, encoding="utf-8-sig")
+    else:
+        df = pd.read_excel(excel_path)
     if df.empty:
         return None
 
@@ -766,7 +773,8 @@ def generar_word_g3(excel_path: str, cliente: str, razon: str,
                  "November":"noviembre","December":"diciembre"}
     fd = datetime.now()
     fecha_es = f"{fd.day} de {meses_es.get(fd.strftime('%B'), fd.strftime('%B'))} de {fd.year}"
-    out = excel_path.replace(".xlsx", f"_informe_g2_{fecha_str}.docx")
+    base_out = excel_path.replace(".csv", "").replace(".xlsx", "")
+    out = f"{base_out}_informe_g2_{fecha_str}.docx"
 
     doc    = Document()
     _fig_n = [0]
